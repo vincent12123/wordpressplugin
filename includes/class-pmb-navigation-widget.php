@@ -81,14 +81,13 @@ class PMB_Navigation_Widget extends WP_Widget {
         }
         
         // Payment
-        $payment_page = carbon_get_theme_option('pmb_payment_page');
-        $payment_enabled = carbon_get_theme_option('pmb_payment_enabled') === 'yes';
+        $payment_page = get_option('pmb_payment_page');
 
-        if (!empty($payment_page) && $payment_enabled) {
+        if (!empty($payment_page)) {
             $is_active = get_the_ID() == $payment_page ? 'active' : '';
             echo '<li class="' . $is_active . '"><a href="' . esc_url(get_permalink($payment_page)) . '">' .
                  '<span class="dashicons dashicons-money-alt"></span> ' .
-                 esc_html__('Pembayaran Formulir', 'pmb-stba') . '</a></li>';
+                 esc_html__('Pembayaran Pendaftaran', 'pmb-stba') . '</a></li>';
         }
         
         // Logout

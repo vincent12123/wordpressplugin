@@ -8,25 +8,19 @@ if (!is_user_logged_in()) {
     return;
 }
 
-// Get current user data
+// Get payment info
+$payment_title = get_option('pmb_payment_title', 'Informasi Pembayaran PMB');
+$payment_description = get_option('pmb_payment_description', '');
+$payment_amount = get_option('pmb_payment_amount', '0');
+$bank_accounts = get_option('pmb_bank_accounts', array());
+
+// Current user
 $current_user = wp_get_current_user();
 $user_id = $current_user->ID;
-$payment_enabled = carbon_get_theme_option('pmb_payment_enabled') === 'yes';
-$payment_title = carbon_get_theme_option('pmb_payment_title');
-$payment_description = carbon_get_theme_option('pmb_payment_description');
-$payment_amount = carbon_get_theme_option('pmb_payment_amount');
-$bank_accounts = carbon_get_theme_option('pmb_bank_accounts');
-
-// Check if payment is enabled
-if (!$payment_enabled) {
-    echo '<div class="alert alert-info">';
-    echo __('Informasi pembayaran belum tersedia.', 'pmb-stba');
-    echo '</div>';
-    return;
-}
+$nama_lengkap = get_user_meta($user_id, 'nama_lengkap', true);
 ?>
 
-<div class="pmb-stba-payment-container bg-light py-4">
+<div class="pmb-stba-profile-container bg-light py-4">
     <div class="container">
         <div class="row">
             <!-- Sidebar Navigation - Left Column -->
@@ -74,9 +68,13 @@ if (!$payment_enabled) {
                     }
                     
                     // Payment - active
-                    $payment_page = carbon_get_theme_option('pmb_payment_page');
-                    if (!empty($payment_page)) {
+                    $payment_page = get_option('pmb_payment_page');
+                    if (!empty($payment_page) && get_the_ID() == $payment_page) {
                         echo '<li class="active"><a href="' . esc_url(get_permalink($payment_page)) . '">' . 
+                            '<span class="dashicons dashicons-money-alt"></span> ' .
+                            esc_html__('Pembayaran Formulir', 'pmb-stba') . '</a></li>';
+                    } else {
+                        echo '<li><a href="' . esc_url(get_permalink($payment_page)) . '">' . 
                             '<span class="dashicons dashicons-money-alt"></span> ' .
                             esc_html__('Pembayaran Formulir', 'pmb-stba') . '</a></li>';
                     }
@@ -98,13 +96,14 @@ if (!$payment_enabled) {
                     <div class="card-header bg-primary text-white">
                         <div class="d-flex align-items-center">
                             <i class="dashicons dashicons-money-alt mr-2" style="font-size: 24px;"></i>
-                            <h4 class="mb-0"><?php echo !empty($payment_title) ? esc_html($payment_title) : __('Informasi Pembayaran', 'pmb-stba'); ?></h4>
+                            <h4 class="mb-0"><?php echo esc_html($payment_title); ?></h4>
                         </div>
                     </div>
                     <div class="card-body">
+                        <!-- Konten halaman pembayaran tetap sama -->
                         <?php if (!empty($payment_description)) : ?>
                             <div class="alert alert-info mb-4">
-                                <?php echo wpautop(esc_html($payment_description)); ?>
+                                <?php echo wpautop(wp_kses_post($payment_description)); ?>
                             </div>
                         <?php endif; ?>
                         
@@ -112,7 +111,7 @@ if (!$payment_enabled) {
                             <?php _e('Nominal Pembayaran', 'pmb-stba'); ?>
                         </h5>
                         <div class="mb-4">
-                            <h2 class="text-primary">Rp <?php echo number_format(!empty($payment_amount) ? (int) $payment_amount : 0, 0, ',', '.'); ?></h2>
+                            <h2 class="text-primary">Rp <?php echo number_format(intval($payment_amount), 0, ',', '.'); ?></h2>
                         </div>
                         
                         <?php if (!empty($bank_accounts)) : ?>
@@ -125,15 +124,8 @@ if (!$payment_enabled) {
                                     <div class="col-md-6 mb-4">
                                         <div class="card">
                                             <div class="card-body">
-                                                <div class="d-flex align-items-center mb-3">
-                                                    <?php if (!empty($bank['bank_logo'])) : ?>
-                                                        <div class="mr-3">
-                                                            <img src="<?php echo esc_url($bank['bank_logo']); ?>" alt="<?php echo esc_attr($bank['bank_name']); ?>" class="bank-logo" style="max-height: 40px; max-width: 80px;">
-                                                        </div>
-                                                    <?php endif; ?>
-                                                    <div>
-                                                        <h5 class="mb-0"><?php echo esc_html($bank['bank_name']); ?></h5>
-                                                    </div>
+                                                <div class="mb-3">
+                                                    <h5 class="mb-0"><?php echo esc_html($bank['bank_name']); ?></h5>
                                                 </div>
                                                 
                                                 <div class="mb-2">
@@ -155,70 +147,9 @@ if (!$payment_enabled) {
                                 <h6 class="mb-2"><i class="dashicons dashicons-info mr-2"></i> <?php _e('Petunjuk Pembayaran:', 'pmb-stba'); ?></h6>
                                 <ol class="mb-0 pl-3">
                                     <li><?php _e('Transfer sesuai nominal yang tertera.', 'pmb-stba'); ?></li>
-                                    <li><?php _e('Simpan bukti pembayaran.', 'pmb-stba'); ?></li>
-                                    <li><?php _e('Upload bukti pembayaran melalui tombol di bawah.', 'pmb-stba'); ?></li>
+                                    <li><?php _e('Gunakan nama Anda sebagai keterangan transfer: ', 'pmb-stba'); ?><strong><?php echo esc_html($nama_lengkap); ?></strong></li>
+                                    <li><?php _e('Simpan bukti pembayaran untuk verifikasi jika diperlukan.', 'pmb-stba'); ?></li>
                                 </ol>
-                            </div>
-                            
-                            <div class="text-center mt-4">
-                                <a href="#upload-payment" class="btn btn-primary btn-lg" data-toggle="modal">
-                                    <i class="dashicons dashicons-upload"></i> 
-                                    <?php _e('Upload Bukti Pembayaran', 'pmb-stba'); ?>
-                                </a>
-                            </div>
-                            
-                            <!-- Modal for uploading payment proof -->
-                            <div class="modal fade" id="upload-payment" tabindex="-1" role="dialog" aria-labelledby="uploadPaymentLabel" aria-hidden="true">
-                                <div class="modal-dialog" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="uploadPaymentLabel"><?php _e('Upload Bukti Pembayaran', 'pmb-stba'); ?></h5>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
-                                            </button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <form id="payment-proof-form" method="post" enctype="multipart/form-data">
-                                                <?php wp_nonce_field('pmb_payment_proof_nonce', 'payment_proof_nonce'); ?>
-                                                
-                                                <div class="form-group">
-                                                    <label for="payment_bank"><?php _e('Bank Tujuan', 'pmb-stba'); ?></label>
-                                                    <select class="form-control" id="payment_bank" name="payment_bank" required>
-                                                        <option value=""><?php _e('-- Pilih Bank --', 'pmb-stba'); ?></option>
-                                                        <?php foreach ($bank_accounts as $bank) : ?>
-                                                            <option value="<?php echo esc_attr($bank['bank_name']); ?>"><?php echo esc_html($bank['bank_name']); ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                                
-                                                <div class="form-group">
-                                                    <label for="payment_date"><?php _e('Tanggal Pembayaran', 'pmb-stba'); ?></label>
-                                                    <input type="date" class="form-control" id="payment_date" name="payment_date" required>
-                                                </div>
-                                                
-                                                <div class="form-group">
-                                                    <label for="payment_amount"><?php _e('Jumlah Pembayaran (Rp)', 'pmb-stba'); ?></label>
-                                                    <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                                </div>
-                                                
-                                                <div class="form-group">
-                                                    <label for="payment_proof"><?php _e('Bukti Pembayaran', 'pmb-stba'); ?></label>
-                                                    <input type="file" class="form-control-file" id="payment_proof" name="payment_proof" accept="image/*,.pdf" required>
-                                                    <small class="form-text text-muted"><?php _e('Upload file gambar atau PDF (Maks. 2MB)', 'pmb-stba'); ?></small>
-                                                </div>
-                                                
-                                                <div class="form-group">
-                                                    <label for="payment_notes"><?php _e('Catatan (Opsional)', 'pmb-stba'); ?></label>
-                                                    <textarea class="form-control" id="payment_notes" name="payment_notes" rows="3"></textarea>
-                                                </div>
-                                            </form>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-dismiss="modal"><?php _e('Batal', 'pmb-stba'); ?></button>
-                                            <button type="submit" form="payment-proof-form" class="btn btn-primary"><?php _e('Upload', 'pmb-stba'); ?></button>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         <?php else : ?>
                             <div class="alert alert-warning">
@@ -232,12 +163,237 @@ if (!$payment_enabled) {
     </div>
 </div>
 
-<!-- Add styles for bank logo and payment info -->
+<!-- Tambahkan CSS yang sama dengan halaman profile -->
 <style>
-.bank-logo {
-    object-fit: contain;
+/* Custom styles for profile page */
+.pmb-stba-profile-container .card {
+    border-radius: 0.5rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 1rem;
 }
+
+.pmb-stba-profile-container .card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.pmb-stba-profile-container .card-header {
+    border-radius: 0.5rem 0.5rem 0 0;
+    padding: 0.75rem 1rem;
+}
+
+/* Navigation menu improvements */
+.pmb-navigation-menu {
+    position: sticky;
+    top: 1rem;
+}
+
+.pmb-navigation-menu .list-group-item {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+}
+
+.pmb-navigation-menu .list-group-item:first-child {
+    border-top: none;
+}
+
+.pmb-navigation-menu .list-group-item:last-child {
+    border-bottom: none;
+}
+
+.pmb-navigation-menu .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.pmb-navigation-menu .list-group-item.active {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
+
+.info-item small {
+    font-size: 0.75rem;
+}
+
+.dashicons {
+    line-height: 1.5;
+    margin-right: 0.5rem;
+}
+
+.mr-2 {
+    margin-right: 0.5rem;
+}
+
+.mr-3 {
+    margin-right: 1rem;
+}
+
+/* Container adjustments for better spacing */
+.container {
+    width: 100%;
+    padding-right: 15px;
+    padding-left: 15px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+/* Responsive adjustments - special attention to 1366x768 */
+@media (max-width: 1366px) {
+    .pmb-stba-profile-container .container {
+        max-width: 100%;
+        padding: 0 0.5rem;
+    }
+    
+    .pmb-navigation-menu .list-group-item {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .card-header h4, .card-header h5 {
+        font-size: 1.1rem;
+    }
+    
+    .pmb-stba-profile-container .row {
+        margin-right: -0.5rem;
+        margin-left: -0.5rem;
+    }
+    
+    .pmb-stba-profile-container [class*="col-"] {
+        padding-right: 0.5rem;
+        padding-left: 0.5rem;
+    }
+    
+    .pmb-stba-profile-container .card {
+        margin-bottom: 0.75rem;
+    }
+    
+    .pmb-stba-profile-container .card-body {
+        padding: 0.75rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .pmb-navigation-menu {
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    
+    .col-lg-3, .col-md-3 {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .col-md-3, .col-md-9 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    
+    .info-item .d-flex {
+        flex-direction: column;
+    }
+    
+    .info-item .bg-light.p-2 {
+        margin-bottom: 0.5rem;
+    }
+    
+    .pmb-stba-profile-container {
+        padding: 0.5rem !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .pmb-stba-profile-container .card-body {
+        padding: 0.75rem;
+    }
+    
+    .d-flex.align-items-center {
+        flex-wrap: wrap;
+    }
+    
+    .bg-light.p-2.rounded-circle.mr-3 {
+        margin-bottom: 0.5rem;
+    }
+    
+    .card-header h4, .card-header h5 {
+        font-size: 1rem;
+    }
+    
+    .dashicons {
+        font-size: 1.1rem !important;
+    }
+    
+    .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Fix for dashboard icons alignment */
 .dashicons {
     vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Specific adjustments for notification area */
+.alert {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Make form notification more readable */
+.pmb-stba-profile-container .alert-info {
+    background-color: #e3f2fd;
+    border-color: #b3e0ff;
+}
+
+/* Improve button appearance */
+.btn-primary {
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+}
+
+/* Fix for the blue header areas */
+.card-header.bg-primary {
+    color: white;
+    font-weight: 500;
+}
+
+/* Fix excessive padding on small screens */
+@media (max-width: 480px) {
+    .pmb-stba-profile-container {
+        padding: 0.25rem !important;
+    }
+    
+    .container {
+        padding-right: 8px;
+        padding-left: 8px;
+    }
+    
+    .card-body {
+        padding: 0.625rem;
+    }
+    
+    .mb-4 {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .py-3 {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    
+    h5.mb-0 {
+        font-size: 0.95rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+    }
 }
 </style>

@@ -766,3 +766,34 @@ class Pmb_Stba_Admin {
 	}
 
 }
+
+/**
+ * Register settings for PMB STBA
+ *
+ * @since    1.0.0
+ */
+function pmb_stba_register_settings() {
+    register_setting('pmb_settings', 'pmb_payment_page');
+    
+    add_settings_field(
+        'pmb_payment_page',
+        __('Halaman Pembayaran', 'pmb-stba'),
+        'pmb_payment_page_callback',
+        'pmb_settings',
+        'pmb_page_settings'
+    );
+}
+add_action('admin_init', 'pmb_stba_register_settings');
+
+function pmb_payment_page_callback() {
+    $payment_page = get_option('pmb_payment_page');
+    
+    wp_dropdown_pages(array(
+        'name' => 'pmb_payment_page',
+        'show_option_none' => __('-- Pilih Halaman --', 'pmb-stba'),
+        'option_none_value' => '0',
+        'selected' => $payment_page,
+    ));
+    
+    echo '<p class="description">' . __('Pilih halaman yang menampilkan shortcode [pmb_payment_info]', 'pmb-stba') . '</p>';
+}
